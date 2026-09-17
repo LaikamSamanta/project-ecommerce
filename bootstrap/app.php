@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Render terminates TLS at its edge proxy and forwards plain HTTP to
+        // the container, so trust its X-Forwarded-* headers or Laravel will
+        // generate http:// asset URLs on an https:// page (mixed content).
+        $middleware->trustProxies(at: '*');
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
