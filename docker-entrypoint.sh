@@ -12,5 +12,8 @@ fi
 php artisan config:clear
 php artisan migrate --force
 
-PORT="${PORT:-8080}"
-exec php artisan serve --host=0.0.0.0 --port="$PORT"
+export PORT="${PORT:-8080}"
+envsubst '$PORT' < /etc/nginx/templates/app.conf.template > /etc/nginx/conf.d/default.conf
+
+php-fpm -D
+exec nginx -g 'daemon off;'

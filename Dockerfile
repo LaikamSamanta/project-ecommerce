@@ -6,17 +6,18 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# --- Stage 2: PHP runtime ---
-FROM php:8.4-cli
+# --- Stage 2: PHP-FPM + nginx runtime ---
+FROM php:8.4-fpm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libzip-dev libpng-dev libonig-dev \
+    git unzip libzip-dev libpng-dev libonig-dev nginx gettext-base \
     && docker-php-ext-install pdo_mysql mbstring bcmath zip gd \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/nginx/sites-enabled/default
 
-# php:8.4-cli ships no php.ini, so display_errors defaults to On and any
-# warning/deprecation gets echoed straight into the response body before
-# Laravel sends its headers ("headers already sent"). Disable it.
+# php:8.4-fpm ships no php.ini, so display_errors defaults to On and PHP
+# warnings/deprecations can leak into the response body. Keep them out of
+# the HTTP response and only in the (stderr) logs.
 RUN { \
         echo 'display_errors = Off'; \
         echo 'log_errors = On'; \
@@ -35,8 +36,10 @@ COPY --from=assets /app/public/build ./public/build
 
 RUN composer dump-autoload --optimize \
     && mkdir -p storage/framework/{cache,sessions,testing,views} storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+COPY docker/nginx.conf.template /etc/nginx/templates/app.conf.template
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
