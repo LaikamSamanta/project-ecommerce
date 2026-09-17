@@ -14,6 +14,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install pdo_mysql mbstring bcmath zip gd \
     && rm -rf /var/lib/apt/lists/*
 
+# php:8.4-cli ships no php.ini, so display_errors defaults to On and any
+# warning/deprecation gets echoed straight into the response body before
+# Laravel sends its headers ("headers already sent"). Disable it.
+RUN { \
+        echo 'display_errors = Off'; \
+        echo 'log_errors = On'; \
+        echo 'error_reporting = E_ALL & ~E_DEPRECATED & ~E_NOTICE'; \
+    } > /usr/local/etc/php/conf.d/production-errors.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
